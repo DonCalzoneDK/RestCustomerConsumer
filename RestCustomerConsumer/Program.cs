@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
@@ -11,7 +12,7 @@ namespace RestCustomerConsumer
     {
         static HttpClient client = new HttpClient();
         //the uri is pointing to our local service we have created
-        private static string uri = "https://localhost:44346/customer";
+        private static string uri = "https://localhost:44305/customer";
         //in the main we execute the RunAsync method which utilizes two other methods
         //the first is an async method to compile all the customers into a list(GetAllCustomersAsync)
         //and the second ShowObjectData prints our the customers Id + first name and last name
@@ -27,11 +28,23 @@ namespace RestCustomerConsumer
             {
             }
         }
-        //gets all customers and displays them
+        
         static async void RunAsync()
         {
+            //gets all customers and displays them
             IList<Customer> getAllList = await GetAllCustomersAsync();
             ShowObjectData(getAllList);
+            Console.WriteLine("------ Get Customer By Id 3 -------");
+            //Gets Customer by Id
+            var getCustomerById = await GetCustomersById("3");
+            ShowSingleObjectData(getCustomerById);
+            //Creates New Customer
+            Console.WriteLine("---- Rick James is being Added ----");
+            Customer newCustomer = new Customer() { Id = 13, FirstName = "Rick", LastName = "James", Year = 1969};
+            //creates local variable new resource which contains the new customer created above
+            var newResource = await AddNewCustomer(newCustomer);
+            //prints out the single new data entry
+            ShowSingleObjectData(newResource);
         }
 
         //gets all customers from service we created
@@ -52,7 +65,7 @@ namespace RestCustomerConsumer
         }
 
 
-        static async Task<Customer> GetAllCustomersById(string id)
+        static async Task<Customer> GetCustomersById(string id)
         {
             string uriId = uri + "/" + id;
             HttpResponseMessage response = await client.GetAsync(uriId);
@@ -65,8 +78,58 @@ namespace RestCustomerConsumer
             }
             else
             {
-                throw new Exception("Customer Id is not found");
+                throw new Exception("Customer Id was not found");
             }
+        }
+
+
+        static async Task<Customer> AddNewCustomer(Customer newCust)
+        {
+            var jsonContent = JsonConvert.SerializeObject(newCust);
+            StringContent content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            HttpResponseMessage response = await client.PostAsync(uri, content);
+            if (response.StatusCode != HttpStatusCode.Conflict)
+            {
+                response.EnsureSuccessStatusCode();
+                string jsonString = await response.Content.ReadAsStringAsync();
+                var newlyCreatedCustomer = JsonConvert.DeserializeObject<Customer>(jsonString);
+                return newlyCreatedCustomer;
+            }
+            else
+            {
+                throw new Exception("Customer already exists!");
+            }
+        }
+
+
+        static async Task<Customer> UpdateResource(Customer cust, string id)
+        {
+            var jsonContent = JsonConvert.SerializeObject(cust);
+            StringContent content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            HttpResponseMessage response = await client.PostAsync(uri + "/" + id, content);
+            if (response.StatusCode != HttpStatusCode.Conflict)
+            {
+                response.EnsureSuccessStatusCode();
+                string jsonString = await response.Content.ReadAsStringAsync();
+                var newlyCreatedCustomer = JsonConvert.DeserializeObject<Customer>(jsonString);
+                return newlyCreatedCustomer;
+            }
+            else
+            {
+                throw new Exception("Customer already exists!");
+            }
+        }
+
+
+        static async void DeleteToDoItemAsync(string id)
+        {
+            string uriId = uri + "/" + id;
+            HttpResponseMessage response = await client.DeleteAsync(uriId);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw new Exception("Customer not found with that Id. Check Id was entered correctly and try again!");
+            }
+            response.EnsureSuccessStatusCode();
         }
 
 
@@ -78,6 +141,10 @@ namespace RestCustomerConsumer
             {
                 Console.WriteLine("Customer ID: " + c.Id + ", Name: " + c.FirstName + " " + c.LastName);
             }
+        }
+        static void ShowSingleObjectData(Customer cust)
+        {
+            Console.WriteLine("Customer ID: " + cust.Id + ", Name: " + cust.FirstName + " " + cust.LastName);
         }
 
     }
